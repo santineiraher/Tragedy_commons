@@ -2,7 +2,7 @@ import networkx as nx
 import numpy as np
 import random
 import matplotlib.pyplot as plt
-
+import os
 
 class Individual:
     def __init__(self, node_id, individual_type='Indifferent'):
@@ -35,15 +35,18 @@ class Resources:
         for ind_type, count in population_counts.items():
             total_consumption += self.consumption_rates[ind_type] * count
 
-        # Update resource value by subtracting total consumption
-        self.value = self.value - total_consumption
-
         # Ensure resource value does not go negative
         if self.value < 0:
             self.value = 0
 
+
+        #TO-DO: Make it constant
+
         # Replenish a proportion of the remaining resource
         replenishment_amount = self.replenishment_proportion * self.value
+
+        # Update resource value by subtracting total consumption
+        self.value = self.value - total_consumption
         self.value += replenishment_amount
 
     def get_value(self):
@@ -188,7 +191,7 @@ class ABMModel:
 
 # Simulation Parameters
 num_individuals = 100  # Number of individuals in the graph
-p_cooperative = 0.1  # Initial fraction of cooperative individuals
+p_cooperative = 0.05  # Initial fraction of cooperative individuals
 beta = 0.05  # Probability parameter for cooperation
 gamma = 0.02  # Probability of becoming a Freerider
 T = 100  # Number of time steps
@@ -196,10 +199,10 @@ T = 100  # Number of time steps
 # Resource parameters
 initial_resource = 1000  # Initial value of the resource
 replenishment_proportion = 0.01  # 1% of the remaining resource is replenished each step
-consumption_rates = {'Indifferent': 0.2, 'Cooperative': 0.05, 'Freerider': 0.5}  # Consumption rates for each type
+consumption_rates = {'Indifferent': 0.2, 'Cooperative': 0.15, 'Freerider': 0.25}  # Consumption rates for each type
 
 # Critical resource parameters
-critical_value = 400  # If the resource exceeds this value, extra cooperation probability is triggered
+critical_value = 600  # If the resource exceeds this value, extra cooperation probability is triggered
 rho = 0.1  # Extra cooperation probability when the critical resource threshold is crossed
 
 # Example: Erdos-Renyi graph
@@ -224,37 +227,47 @@ indifferent_proportions = [h['Indifferent'] for h in history]
 cooperative_proportions = [h['Cooperative'] for h in history]
 freerider_proportions = [h['Freerider'] for h in history]
 
-# Plot the results
-plt.figure(figsize=(10, 6))
-plt.plot(timesteps, indifferent_proportions, label='Indifferent', marker='o')
-plt.plot(timesteps, cooperative_proportions, label='Cooperative', marker='o')
-plt.plot(timesteps, freerider_proportions, label='Freerider', marker='o')
 
-# If the critical event was triggered, mark it
+# Create a figure with a grid layout: 2 rows (1 plot on the first row, 2 on the second)
+fig = plt.figure(figsize=(20, 15))
+grid = fig.add_gridspec(2, 2, height_ratios=[1, 1])  # Define grid spec (1st row, centered; 2nd row with two plots)
+
+# First plot: Initial network (spanning the first row)
+ax0 = fig.add_subplot(grid[0, :])  # This spans both columns in the first row
+ax0.set_title("Initial network config")
+pos = nx.spring_layout(graph)  # Layout for the graph
+nx.draw(graph, pos, ax=ax0, node_color='gray', with_labels=True, node_size=300, font_size=10)
+
+# Second plot: Proportion of individuals by type
+ax1 = fig.add_subplot(grid[1, 0])  # Left plot on second row
+ax1.plot(timesteps, indifferent_proportions, label='Indifferent', marker='o')
+ax1.plot(timesteps, cooperative_proportions, label='Cooperative', marker='o')
+ax1.plot(timesteps, freerider_proportions, label='Freerider', marker='o')
 if model.trigger_time is not None:
-    plt.axvline(x=model.trigger_time, color='purple', linestyle='--', label=f'Trigger at t={model.trigger_time-1}')
+    ax1.axvline(x=model.trigger_time, color='purple', linestyle='--', label=f'Trigger at t={model.trigger_time-1}')
+ax1.set_xlabel('Time Step')
+ax1.set_ylabel('Proportion of Individuals')
+ax1.set_title('Proportion of Individuals by Type')
+ax1.legend()
+ax1.grid(True)
 
-plt.xlabel('Time Step')
-plt.ylabel('Proportion of Individuals')
-plt.title('Proportion of Individuals by Type Over Time')
-plt.legend()
-plt.grid(True)
-plt.show()
-
-# Plot resource over time
-plt.figure(figsize=(10, 6))
-plt.plot(timesteps, resource_history, label='Resource Value', color='blue', marker='o')
-
-# Mark the moment when the critical resource threshold was crossed
+# Third plot: Resource consumption over time
+ax2 = fig.add_subplot(grid[1, 1])  # Right plot on second row
+ax2.plot(timesteps, resource_history, label='Resource Value', color='blue', marker='o')
 if model.trigger_time is not None:
-    plt.axvline(x=model.trigger_time, color='purple', linestyle='--', label=f'First alert at t={model.trigger_time}')
+    ax2.axvline(x=model.trigger_time, color='purple', linestyle='--', label=f'Trigger at t={model.trigger_time}')
+ax2.set_xlabel('Time Step')
+ax2.set_ylabel('Resource Value')
+ax2.set_title('Resource Value Over Time')
+ax2.legend()
+ax2.grid(True)
 
-plt.xlabel('Time Step')
-plt.ylabel('Resource Value')
-plt.title('Resource Value Over Time')
-plt.legend()
-plt.grid(True)
+# Adjust layout and show the figure
+plt.tight_layout()
+
+#save the figure
+print(os.getcwd())
+PATH_TO_SAVE= "../Output/Images/"
+plt.savefig(PATH_TO_SAVE+f'sim_ErdosRenyi3'+'.png')
+
 plt.show()
-
-# Visualize the graph after simulation (final state)
-model.draw_graph('Final State of the Graph')
