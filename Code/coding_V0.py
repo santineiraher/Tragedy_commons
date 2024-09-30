@@ -7,7 +7,7 @@ import os
 class Individual:
     def __init__(self, node_id, individual_type='Indifferent'):
         self.node_id = node_id
-        self.type = individual_type  # Indifferent, Cooperative, or Freerider
+        self.type = individual_type  # Indifferent or Cooperative
 
 
 class Resources:
@@ -22,39 +22,33 @@ class Resources:
         self.replenishment_proportion = replenishment_proportion
         self.consumption_rates = consumption_rates
 
-    def update(self, population_counts):
+    def update(self, proportions):
         """
         Update the resource value based on consumption and replenishment.
 
         Parameters:
-        - population_counts: A dictionary with the number of individuals in each type (Cooperative, Indifferent, Freerider).
+        - proportions: A dictionary with the proportion of individuals in each type (Cooperative, Indifferent).
         """
         total_consumption = 0
 
-        # Calculate total consumption based on population and individual consumption rates
-        for ind_type, count in population_counts.items():
-            total_consumption += self.consumption_rates[ind_type] * count
+        # Calculate total consumption based on the proportion of population and individual consumption rates
+        for ind_type, proportion in proportions.items():
+            total_consumption += self.consumption_rates[ind_type] * proportion
+
+        # Replenishment is a proportion of the current resource level
+        self.value = self.value - total_consumption + self.replenishment_proportion
 
         # Ensure resource value does not go negative
         if self.value < 0:
             self.value = 0
 
 
-        # TODO: Make it constant
-
-        # Replenish a proportion of the remaining resource
-        replenishment_amount = self.replenishment_proportion * self.value
-
-        # Update resource value by subtracting total consumption
-        self.value = self.value - total_consumption
-        self.value += replenishment_amount
-
     def get_value(self):
         return self.value
 
 
 class ABMModel:
-    def __init__(self, graph, p_cooperative, beta, gamma, T, initial_resource, replenishment_proportion, consumption_rates, critical_value, rho):
+    def __init__(self, graph, p_cooperative, beta, mu, T, initial_resource, replenishment_proportion, consumption_rates, critical_value, rho):
         """
         Initializes the model with a given graph and other parameters.
 
@@ -62,28 +56,28 @@ class ABMModel:
         - graph: The networkx graph to be used in the simulation.
         - p_cooperative: Initial fraction of cooperative individuals.
         - beta: Probability parameter for cooperation.
-        - gamma: Probability of becoming a Freerider.
+        - mu: Constant probability of becoming indifferent.
         - T: Number of time steps to simulate.
         - initial_resource: Initial value of the resource pool.
         - replenishment_proportion: Proportion of resources replenished at each step.
         - consumption_rates: Dictionary of consumption rates for each individual type.
         - critical_value: Critical resource value where cooperation probability is boosted.
-        - rho: Extra cooperation probability if resources exceed the critical value.
+        - rho: Extra cooperation probability if resources drop below the critical value.
         """
         self.graph = graph
-        self.num_individuals = graph.number_of_nodes()  # Automatically use the number of nodes in the graph
+        self.num_individuals = graph.number_of_nodes()
         self.p_cooperative = p_cooperative
         self.beta = beta
-        self.gamma = gamma
+        self.mu = mu  # Replaces gamma with mu
         self.T = T
-        self.rho = rho  # Extra cooperation probability
-        self.critical_value = critical_value  # Critical resource threshold
-        self.triggered = False  # To check if extra cooperation has been triggered
+        self.rho = rho  # Extra cooperation probability when resources drop below critical value
+        self.critical_value = critical_value
+        self.triggered = False  # Track if the extra cooperation has been triggered
         self.trigger_time = None  # Time step when the critical threshold is crossed
         self.individuals = {i: Individual(i) for i in self.graph.nodes()}
         self.initialize_individuals()
-        self.history = []  # List to store the proportions at each time step
-        self.resource_history = []  # List to store resource values at each step
+        self.history = []  # Store the proportions at each time step
+        self.resource_history = []  # Store resource values at each step
 
         # Initialize the Resources class
         self.resources = Resources(initial_resource, replenishment_proportion, consumption_rates)
@@ -94,23 +88,22 @@ class ABMModel:
             self.individuals[i].type = 'Indifferent'
 
         # Set initial cooperative individuals based on fraction p_cooperative
-        initial_cooperative = random.sample(list(self.individuals.keys()),
-                                            int(self.p_cooperative * self.num_individuals))
+        initial_cooperative = random.sample(list(self.individuals.keys()), int(self.p_cooperative * self.num_individuals))
         for i in initial_cooperative:
             self.individuals[i].type = 'Cooperative'
 
     def step(self, t):
         """Perform a single step of the simulation."""
-        # Check if the resource has exceeded the critical value and trigger the extra cooperation probability
+        # Check if the resource has fallen below the critical value and trigger the extra cooperation probability
         if not self.triggered and self.resources.get_value() < self.critical_value:
             self.triggered = True
             self.trigger_time = t  # Record the time when the event happens
 
-        # For this step, we iterate over indifferent individuals and apply the rules
         for i in self.individuals:
             random_value = np.random.random()
             neighbors = list(self.graph.neighbors(i))
             num_cooperative_neighbors = sum([1 for n in neighbors if self.individuals[n].type == 'Cooperative'])
+
             # Probability to become cooperative
             prob_cooperative = 1 - (1 - self.beta) ** num_cooperative_neighbors
 
@@ -118,25 +111,13 @@ class ABMModel:
             if self.triggered:
                 prob_cooperative += self.rho
 
-            prob_freerider = self.gamma
-
+            # Apply state changes based on probabilities
             if self.individuals[i].type == 'Indifferent':
                 if random_value < prob_cooperative:
                     self.individuals[i].type = 'Cooperative'
-                elif random_value < prob_cooperative + prob_freerider:
-                    self.individuals[i].type = 'Freerider'
-                else:
-                    self.individuals[i].type = 'Indifferent'
             elif self.individuals[i].type == 'Cooperative':
-                if random_value < self.gamma:
-                    self.individuals[i].type = 'Freerider'
-                else:
-                    self.individuals[i].type = 'Cooperative'
-            else:
-                if random_value < prob_cooperative:
-                    self.individuals[i].type = 'Cooperative'
-                else:
-                    self.individuals[i].type = 'Freerider'
+                if random_value < self.mu:  # Use mu instead of gamma
+                    self.individuals[i].type = 'Indifferent'
 
     def run(self):
         """Run the simulation for T steps."""
@@ -146,7 +127,7 @@ class ABMModel:
 
     def record_state(self):
         """Record the proportion of each type of individual and the resource value."""
-        state_counts = {'Indifferent': 0, 'Cooperative': 0, 'Freerider': 0}
+        state_counts = {'Indifferent': 0, 'Cooperative': 0}
         for individual in self.individuals.values():
             state_counts[individual.type] += 1
 
@@ -154,14 +135,9 @@ class ABMModel:
         proportions = {key: state_counts[key] / self.num_individuals for key in state_counts}
         self.history.append(proportions)
 
-        # Update the resource pool
-        self.resources.update(state_counts)
+        # Update the resource pool based on the proportion of individuals
+        self.resources.update(proportions)
         self.resource_history.append(self.resources.get_value())
-
-    def get_state(self):
-        """Return the current state of the individuals."""
-        state = {i: self.individuals[i].type for i in self.individuals}
-        return state
 
     def get_history(self):
         """Return the history of proportions at each time step."""
@@ -171,48 +147,28 @@ class ABMModel:
         """Return the history of resource values."""
         return self.resource_history
 
-    def draw_graph(self, title):
-        """Draw the graph with node colors representing their type."""
-        # Get node colors based on individual type
-        color_map = {
-            'Indifferent': 'gray',
-            'Cooperative': 'green',
-            'Freerider': 'red'
-        }
-
-        node_colors = [color_map[self.individuals[node].type] for node in self.graph.nodes()]
-
-        plt.figure(figsize=(8, 8))
-        pos = nx.spring_layout(self.graph)  # Layout for the graph
-        nx.draw(self.graph, pos, node_color=node_colors, with_labels=True, node_size=300, font_size=10)
-        plt.title(title)
-        plt.show()
-
 
 # Simulation Parameters
 num_individuals = 100  # Number of individuals in the graph
 p_cooperative = 0.05  # Initial fraction of cooperative individuals
-beta = 0.05  # Probability parameter for cooperation
-gamma = 0.02  # Probability of becoming a Freerider
-T = 100  # Number of time steps
+beta = 0.5  # Probability parameter for cooperation
+mu = 0.2  # Constant probability of becoming indifferent
+T = 200  # Number of time steps
 
 # Resource parameters
-initial_resource = 1000  # Initial value of the resource
-replenishment_proportion = 0.01  # 1% of the remaining resource is replenished each step
-consumption_rates = {'Indifferent': 0.2, 'Cooperative': 0.15, 'Freerider': 0.25}  # Consumption rates for each type
+initial_resource = 10  # Initial value of the resource
+replenishment_proportion = 0.46  # 1% of the remaining resource is replenished each step
+consumption_rates = {'Indifferent': 1, 'Cooperative': 0.1}  # Consumption rates for each type
 
 # Critical resource parameters
-critical_value = 600  # If the resource exceeds this value, extra cooperation probability is triggered
+critical_value = 5 # If the resource drops below this value, extra cooperation probability is triggered
 rho = 0.1  # Extra cooperation probability when the critical resource threshold is crossed
 
 # Example: Erdos-Renyi graph
-graph = nx.erdos_renyi_graph(num_individuals, 0.01)
+graph = nx.erdos_renyi_graph(num_individuals, 0.02)
 
 # Initialize and run the model
-model = ABMModel(graph, p_cooperative, beta, gamma, T, initial_resource, replenishment_proportion, consumption_rates, critical_value, rho)
-
-# Visualize the graph before the simulation (initial state)
-model.draw_graph('Initial State of the Graph')
+model = ABMModel(graph, p_cooperative, beta, mu, T, initial_resource, replenishment_proportion, consumption_rates, critical_value, rho)
 
 # Run the simulation
 model.run()
@@ -225,8 +181,6 @@ resource_history = model.get_resource_history()
 timesteps = range(T)
 indifferent_proportions = [h['Indifferent'] for h in history]
 cooperative_proportions = [h['Cooperative'] for h in history]
-freerider_proportions = [h['Freerider'] for h in history]
-
 
 # Create a figure with a grid layout: 2 rows (1 plot on the first row, 2 on the second)
 fig = plt.figure(figsize=(20, 15))
@@ -242,7 +196,6 @@ nx.draw(graph, pos, ax=ax0, node_color='gray', with_labels=True, node_size=300, 
 ax1 = fig.add_subplot(grid[1, 0])  # Left plot on second row
 ax1.plot(timesteps, indifferent_proportions, label='Indifferent', marker='o')
 ax1.plot(timesteps, cooperative_proportions, label='Cooperative', marker='o')
-ax1.plot(timesteps, freerider_proportions, label='Freerider', marker='o')
 if model.trigger_time is not None:
     ax1.axvline(x=model.trigger_time, color='purple', linestyle='--', label=f'Trigger at t={model.trigger_time-1}')
 ax1.set_xlabel('Time Step')
@@ -265,12 +218,10 @@ ax2.grid(True)
 # Adjust layout and show the figure
 plt.tight_layout()
 
-
-
 #save the figure
 
 # TODO: Save the figure to a file which is more structured
 
-PATH_TO_SAVE= "../Output/Images/"
-plt.savefig(PATH_TO_SAVE+f'sim_ErdosRenyi3'+'.png')
+PATH_TO_SAVE= "../Output/Images/V0/"
+plt.savefig(PATH_TO_SAVE+f'sim_ErdosRenyi'+'.png')
 plt.show()
