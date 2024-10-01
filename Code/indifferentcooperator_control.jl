@@ -2,30 +2,86 @@ using LightGraphs
 using Random
 using PyPlot
 using StatsBase
+using Parameters
 
 
-function control_indifferentcooperators(numind, transitionprob, initialprop, time)
+function control_indifferentcooperators(numindv, transitionprob, initialprop, time)
     data=zeros(time)
-    data[1]=1-initialprop
+    data2=zeros(time)
+    data[1]=numindv*(1-initialprop)
+    data2[1]=numindv*initialprop
     for t in 1:time-1
-        data[t+1]=data[t]*(1-(transitionprob/numind))
+        data[t+1]=data[t]*(1-(transitionprob/numindv))
+        data2[t+1]=numindv-data[t+1]
     end
-    return data
+    return hcat(data, data2)
 end
 
-control_indifferentcooperators(100, 0.5, 0.05,200)
+test = control_indifferentcooperators(100, 0.5, 0.05, 200)
+
+test[1,2]
 
 let 
     data = control_indifferentcooperators(100, 0.5, 0.05,200)
     test = figure()
-    plot(1.0:1.0:200.0,data)
+    plot(1.0:1.0:200.0,data[:,1])
     return test
 end
 
-
-function control_resources(numind, transitionprob, initialprop, time) 
-
+function resource_regen(δi, δc, Ni, Nc)
+    return δi*Ni + δc*Nc
 end
+
+function find_time(ind_coop_data, indifferentequalprop)
+    numindv = ind_coop_data[1,1]+ind_coop_data[1,2]
+    for i in 1:length(ind_coop_data[:,1])
+        if isapprox(ind_coop_data[i,1], numindv*indifferentequalprop, atol=0.05)
+            return i
+        else
+        end
+    end
+end
+
+find_time(test,0.5)
+
+@with_kw mutable struct Res_Use_Par
+    δi = 0.6
+    δc = 0.2
+end
+
+function control_resources(ind_coop_data, res_regen, indifferentequalprop, res_use_par) 
+    @unpack δi, δc = res_use_par
+    endtime = find_time(ind_coop_data, indifferentequalprop)
+    resourceuse_data = zeros(endtime)
+    for i in 1:endtime
+        resourceuse_data[i] = res_regen-(δi*ind_coop_data[i,1])-(δc*ind_coop_data[i,2])
+    end
+    return abs(sum(resourceuse_data))
+end
+
+control_resources(control_indifferentcooperators(100, 0.5, 0.05, 200), 40, 0.5, Res_Use_Par()) 
+
+function check_control(numindv, transitionprob, initialprop, time, indifferentequalprop, res_use_par)
+    @unpack δi, δc = res_use_par
+    res_regen = resource_regen(δi, δc, numindv*indifferentequalprop, numindv*(1-indifferentequalprop))
+    ind_coop_data=control_indifferentcooperators(numindv, transitionprob, initialprop, time)
+    init_res = control_resources(ind_coop_data, res_regen, indifferentequalprop, res_use_par) 
+    resources=zeros(time)
+    resources[1]=init_res
+    for t in 1:time-1
+        resources[t+1]=resources[t]+res_regen-(δi*ind_coop_data[t,1])-(δc*ind_coop_data[t,2])
+    end
+    return resources
+end    
+
+let
+    data = check_control(100, 0.5, 0.05, 200, 0.5, Res_Use_Par())
+    test = figure()
+    plot(1.0:1.0:200.0,data)
+    hlines(0.0,1.0,200.0)
+    return test
+end
+
 
 struct Individual
     node_id::Int
