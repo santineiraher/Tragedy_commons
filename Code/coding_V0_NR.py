@@ -11,7 +11,7 @@ class Individual:
 
 
 class Resources:
-    def __init__(self, initial_value, replenishment_proportion, consumption_rates, critical_value):
+    def __init__(self, initial_value, replenishment_proportion, consumption_rates, max_capacity):
         """
         Parameters:
         - initial_value: The starting amount of the resource.
@@ -21,7 +21,7 @@ class Resources:
         self.value = initial_value
         self.replenishment_proportion = replenishment_proportion
         self.consumption_rates = consumption_rates
-        self.critical_value = critical_value
+        self.max_capacity = max_capacity
 
     def logistic_growth(self, R, r, K):
         return r * R * (1 - R / K)
@@ -42,7 +42,7 @@ class Resources:
 
         # Logistic growth of the resource
         
-        growth = self.logistic_growth(self.value, self.replenishment_proportion, self.critical_value)
+        growth = self.logistic_growth(self.value, self.replenishment_proportion, self.max_capacity)
     
         # Actualizar la cantidad de recurso disponible (después de generación y consumo)
         self.value = self.value + growth - total_consumption
@@ -60,7 +60,7 @@ class Resources:
 
 
 class ABMModel:
-    def __init__(self, graph, p_cooperative, beta, mu, T, initial_resource, replenishment_proportion, consumption_rates, critical_value, rho):
+    def __init__(self, graph, p_cooperative, beta, mu, T, initial_resource, replenishment_proportion, consumption_rates, critical_value, rho, max_capacity):
         """
         Initializes the model with a given graph and other parameters.
 
@@ -84,6 +84,7 @@ class ABMModel:
         self.T = T
         self.rho = rho  # Extra cooperation probability when resources drop below critical value
         self.critical_value = critical_value
+        self.max_capacity = max_capacity
         self.triggered = False  # Track if the extra cooperation has been triggered
         self.trigger_time = None  # Time step when the critical threshold is crossed
         self.individuals = {i: Individual(i) for i in self.graph.nodes()}
@@ -92,7 +93,7 @@ class ABMModel:
         self.resource_history = []  # Store resource values at each step
 
         # Initialize the Resources class
-        self.resources = Resources(initial_resource, replenishment_proportion, consumption_rates, critical_value)
+        self.resources = Resources(initial_resource, replenishment_proportion, consumption_rates, max_capacity)
 
     def initialize_individuals(self):
         """Initialize individuals, all are Indifferent and a fraction p are Cooperative"""
