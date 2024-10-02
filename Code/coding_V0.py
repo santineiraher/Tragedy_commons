@@ -222,7 +222,6 @@ plt.tight_layout()
 
 #save the figure
 
-# TODO: Save the figure to a file which is more structured
 # Define the file name structure based on the parameters
 file_name = (
     f'sim_ErdosRenyi_p_coop_{p_cooperative}_beta_{beta}_mu_{mu}_T_{T}_'
