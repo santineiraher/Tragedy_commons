@@ -4,6 +4,9 @@ using PyPlot
 using StatsBase
 using Parameters
 
+function abpath()
+    replace(@__DIR__, "Code" => "")
+end
 
 function control_indifferentcooperators(numindv, transitionprob, initialprop, time)
     data=zeros(time)
@@ -17,15 +20,16 @@ function control_indifferentcooperators(numindv, transitionprob, initialprop, ti
     return hcat(data, data2)
 end
 
-test = control_indifferentcooperators(100, 0.5, 0.05, 200)
-
-test[1,2]
-
 let 
     data = control_indifferentcooperators(100, 0.5, 0.05,200)
     test = figure()
-    plot(1.0:1.0:200.0,data[:,1])
-    return test
+    plot(1.0:1.0:200.0,data[:,1], color="blue", label="Indifferent")
+    plot(1.0:1.0:200.0,data[:,2], color="orange", label="Cooperative")
+    xlabel("Time", fontsize=15)
+    ylabel("# of Individuals", fontsize=15)
+    legend(fontsize=12)
+    # return test
+    savefig(joinpath(abpath(), "Output/Images/deterministic_individuals_figure.png"))
 end
 
 function resource_regen(δi, δc, Ni, Nc)
@@ -42,8 +46,6 @@ function find_time(ind_coop_data, indifferentequalprop)
     end
 end
 
-find_time(test,0.5)
-
 @with_kw mutable struct Res_Use_Par
     δi = 0.6
     δc = 0.2
@@ -58,8 +60,6 @@ function control_resources(ind_coop_data, res_regen, indifferentequalprop, res_u
     end
     return abs(sum(resourceuse_data))
 end
-
-control_resources(control_indifferentcooperators(100, 0.5, 0.05, 200), 40, 0.5, Res_Use_Par()) 
 
 function check_control(numindv, transitionprob, initialprop, time, indifferentequalprop, res_use_par)
     @unpack δi, δc = res_use_par
@@ -78,8 +78,11 @@ let
     data = check_control(100, 0.5, 0.05, 200, 0.5, Res_Use_Par())
     test = figure()
     plot(1.0:1.0:200.0,data)
-    hlines(0.0,1.0,200.0)
-    return test
+    xlabel("Time", fontsize=15)
+    ylabel("Resources (units)", fontsize=15)
+    ylim(0.0,1040)
+    # return test
+    savefig(joinpath(abpath(), "Output/Images/deterministic_resources_figure.png"))
 end
 
 
