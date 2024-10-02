@@ -240,8 +240,3 @@ plt.savefig(os.path.join(PATH_TO_SAVE, file_name))
 
 # Show the figure
 plt.show()
-
-
-PATH_TO_SAVE= "../Output/Images/V0/"
-plt.savefig(PATH_TO_SAVE+f'sim_ErdosRenyi'+'.png')
-plt.show()
