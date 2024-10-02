@@ -151,7 +151,7 @@ class ABMModel:
 # Simulation Parameters
 num_individuals = 100  # Number of individuals in the graph
 p_cooperative = 0.05  # Initial fraction of cooperative individuals
-beta = 0.5  # Probability parameter for cooperation
+beta = 0.8  # Probability parameter for cooperation
 mu = 0.2  # Constant probability of becoming indifferent
 T = 200  # Number of time steps
 
@@ -159,6 +159,8 @@ T = 200  # Number of time steps
 initial_resource = 10  # Initial value of the resource
 replenishment_proportion = 0.46  # 1% of the remaining resource is replenished each step
 consumption_rates = {'Indifferent': 1, 'Cooperative': 0.1}  # Consumption rates for each type
+
+
 
 # Critical resource parameters
 critical_value = 5 # If the resource drops below this value, extra cooperation probability is triggered
@@ -221,6 +223,25 @@ plt.tight_layout()
 #save the figure
 
 # TODO: Save the figure to a file which is more structured
+# Define the file name structure based on the parameters
+file_name = (
+    f'sim_ErdosRenyi_p_coop_{p_cooperative}_beta_{beta}_mu_{mu}_T_{T}_'
+    f'resource_{initial_resource}_replenishment_{replenishment_proportion}_'
+    f'critical_{critical_value}_rho_{rho}.png'
+)
+
+# Replace any special characters or spaces with underscores to ensure compatibility
+file_name = file_name.replace(".", "_")
+
+# Define the full path where the file will be saved
+PATH_TO_SAVE = "../Output/Images/V0/"
+
+# Save the figure using the structured file name
+plt.savefig(os.path.join(PATH_TO_SAVE, file_name))
+
+# Show the figure
+plt.show()
+
 
 PATH_TO_SAVE= "../Output/Images/V0/"
 plt.savefig(PATH_TO_SAVE+f'sim_ErdosRenyi'+'.png')
