@@ -148,6 +148,9 @@ class ABMModel:
         return self.resource_history
 
 
+
+
+# TODO: automatize the scaling process for resources dynamics
 # Simulation Parameters
 num_individuals = 100  # Number of individuals in the graph
 p_cooperative = 0.05  # Initial fraction of cooperative individuals
