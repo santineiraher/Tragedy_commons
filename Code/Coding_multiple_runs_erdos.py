@@ -174,7 +174,7 @@ ax2.grid(True)
 # Show the plots
 plt.tight_layout()
 
-file_name="collapse_proportion_vs_p.png"
+file_name="collapse_proportion_vs_p_erdosrenyi.png"
 
 # Replace any special characters or spaces with underscores to ensure compatibility
 
