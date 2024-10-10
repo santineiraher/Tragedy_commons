@@ -170,14 +170,17 @@ consumption_rates = {'Indifferent': 1, 'Cooperative': 0.1}  # Consumption rates 
 critical_value = 5 # If the resource drops below this value, extra cooperation probability is triggered
 rho = 0.1  # Extra cooperation probability when the critical resource threshold is crossed
 
-# Example: Barabasi-Albert graph
-graph = nx.powerlaw_cluster_graph(num_individuals, num_links, p = 0.2)
 
-# Initialize and run the model
-model = ABMModel(graph, p_cooperative, beta, mu, T, initial_resource, replenishment_proportion, consumption_rates, critical_value, rho)
+def run_single_simulation(num_individuals, num_links, p_triangle):
+    graph = nx.powerlaw_cluster_graph(num_individuals, num_links, p = p_triangle)
+    model = ABMModel(graph, p_cooperative, beta, mu, T, initial_resource, replenishment_proportion, consumption_rates, critical_value, rho)
+    model.run()
 
-# Run the simulation
-model.run()
+    return graph, model
+
+
+graph, model =  run_single_simulation(num_individuals, num_links)
+
 
 # Get the history of the simulation
 history = model.get_history()
