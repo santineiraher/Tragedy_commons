@@ -271,6 +271,6 @@ plt.tight_layout()
 
 # TODO: Save the figure to a file which is more structured
 
-PATH_TO_SAVE= "../Output/Images/"
+PATH_TO_SAVE= "../../Output/Images/"
 plt.savefig(PATH_TO_SAVE+f'sim_ErdosRenyi3'+'.png')
 plt.show()
