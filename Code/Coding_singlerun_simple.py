@@ -33,7 +33,7 @@ class Resources:
 
         # Calculate total consumption based on the proportion of population and individual consumption rates
         for ind_type, proportion in proportions.items():
-            total_consumption += self.consumption_rates[ind_type] * proportion
+            total_consumption += self.consumption_rates[ind_type] * proportion * self.num_individuals
 
         # Replenishment is a proportion of the current resource level
         self.value = self.value - total_consumption + self.replenishment_proportion
@@ -132,7 +132,7 @@ class ABMModel:
             state_counts[individual.type] += 1
 
         # Normalize to get proportions
-        proportions = {key: state_counts[key] / self.num_individuals for key in state_counts}
+        proportions = {key: state_counts[key] for key in state_counts} # / self.num_individuals
         self.history.append(proportions)
 
         # Update the resource pool based on the proportion of individuals
