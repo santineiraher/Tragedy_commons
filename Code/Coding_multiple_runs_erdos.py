@@ -11,25 +11,48 @@ class Individual:
 
 
 class Resources:
-    def __init__(self, initial_value, replenishment_proportion, consumption_rates):
+    def __init__(self, initial_value, replenishment_proportion, consumption_rates, max_capacity):
         self.value = initial_value
         self.replenishment_proportion = replenishment_proportion
         self.consumption_rates = consumption_rates
+        self.max_capacity = max_capacity
+
+    def logistic_growth(self, R, r, K):
+        return r * R * (1 - R / K)
 
     def update(self, proportions):
+        """
+        Update the resource value based on consumption and replenishment.
+
+        Parameters:
+        - proportions: A dictionary with the proportion of individuals in each type (Cooperative, Indifferent).
+        """
         total_consumption = 0
+
+        # Calculate total consumption based on the proportion of population and individual consumption rates
         for ind_type, proportion in proportions.items():
             total_consumption += self.consumption_rates[ind_type] * proportion
-        self.value = self.value - total_consumption + self.replenishment_proportion
+
+
+        # Logistic growth of the resource
+        
+        growth = self.logistic_growth(self.value, self.replenishment_proportion, self.max_capacity)
+    
+        # Actualizar la cantidad de recurso disponible (después de generación y consumo)
+        self.value = self.value + growth - total_consumption
+
+
+        # Ensure resource value does not go negative
         if self.value < 0:
             self.value = 0
+
 
     def get_value(self):
         return self.value
 
 
 class ABMModel:
-    def __init__(self, graph, p_cooperative, beta, mu, T, initial_resource, replenishment_proportion, consumption_rates, critical_value, rho):
+    def __init__(self, graph, p_cooperative, beta, mu, T, initial_resource, replenishment_proportion, consumption_rates, critical_value, rho, max_capacity):
         self.graph = graph
         self.num_individuals = graph.number_of_nodes()
         self.p_cooperative = p_cooperative
@@ -38,6 +61,7 @@ class ABMModel:
         self.T = T
         self.rho = rho
         self.critical_value = critical_value
+        self.max_capacity = max_capacity
         self.triggered = False
         self.trigger_time = None
         self.individuals = {i: Individual(i) for i in self.graph.nodes()}
@@ -46,7 +70,7 @@ class ABMModel:
         self.resource_history = []
         self.resource_collapsed = False
         self.collapse_time = None
-        self.resources = Resources(initial_resource, replenishment_proportion, consumption_rates)
+        self.resources = Resources(initial_resource, replenishment_proportion, consumption_rates, max_capacity)
 
     def initialize_individuals(self):
         for i in self.individuals:
@@ -96,94 +120,3 @@ class ABMModel:
 
     def get_collapse_time(self):
         return self.collapse_time
-
-
-# Simulation Parameters
-num_individuals = 100
-p_cooperative = 0.05
-beta = 0.8
-mu = 0.2
-T = 200
-
-# Resource parameters
-initial_resource = 10
-replenishment_proportion = 0.46
-consumption_rates = {'Indifferent': 1, 'Cooperative': 0.1}
-
-# Critical resource parameters
-critical_value = 5
-rho = 0
-
-
-
-def run_single_simulation(p, num_individuals):
-    graph = nx.erdos_renyi_graph(num_individuals, p)
-    model = ABMModel(graph, p_cooperative, beta, mu, T, initial_resource, replenishment_proportion, consumption_rates, critical_value, rho)
-    model.run()
-    if model.has_collapsed():
-        return True, model.get_collapse_time()
-    return False, None
-
-
-def run_simulations_erdos_renyi(num_simulations, num_individuals, p):
-    collapses = 0
-    collapse_times = []
-
-    for _ in range(num_simulations):
-        collapsed, collapse_time = run_single_simulation(p, num_individuals)
-        if collapsed:
-            collapses += 1
-            collapse_times.append(collapse_time)
-
-    # Filter out None values from collapse_times before averaging
-    valid_collapse_times = [time for time in collapse_times if time is not None]
-    avg_collapse_proportion = collapses / num_simulations
-    avg_collapse_time = np.mean(valid_collapse_times) if valid_collapse_times else 200  # Set to 0 if no collapse occurred
-    return avg_collapse_proportion, avg_collapse_time
-
-# Define the range of p values for Erdos-Renyi
-p_values = np.linspace(0.01, 0.025, 50)
-num_simulations = 100
-
-collapse_proportions = []
-avg_collapse_times = []
-
-for p in p_values:
-    avg_collapse_proportion, avg_collapse_time = run_simulations_erdos_renyi(num_simulations, num_individuals, p)
-    collapse_proportions.append(avg_collapse_proportion)
-    avg_collapse_times.append(avg_collapse_time)
-    print(f"p = {p:.3f}: Collapse Proportion = {avg_collapse_proportion:.2f}, Avg Collapse Time = {avg_collapse_time}")
-
-# Create side-by-side plots
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-
-# Plot the proportion of collapsed societies
-ax1.plot(p_values, collapse_proportions, marker='o')
-ax1.set_xlabel('p (Erdos-Renyi connection probability)')
-ax1.set_ylabel('Avg Proportion of Collapsed Runs')
-ax1.set_title('Collapse Proportion vs Erdos-Renyi p')
-ax1.grid(True)
-
-# Plot the average collapse time
-ax2.plot(p_values, avg_collapse_times, marker='o')
-ax2.set_xlabel('p (Erdos-Renyi connection probability)')
-ax2.set_ylabel('Avg Time to Collapse')
-ax2.set_title('Avg Time to Collapse vs Erdos-Renyi p')
-ax2.grid(True)
-
-# Show the plots
-plt.tight_layout()
-
-file_name="collapse_proportion_vs_p_erdosrenyi.png"
-
-# Replace any special characters or spaces with underscores to ensure compatibility
-
-# Define the full path where the file will be saved
-PATH_TO_SAVE = "../Output/Images/Estructural Parameters/"
-
-# Save the figure using the structured file name
-plt.savefig(os.path.join(PATH_TO_SAVE, file_name))
-
-# Show the figure
-
-plt.show()

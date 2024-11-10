@@ -143,7 +143,7 @@ class ABMModel:
             state_counts[individual.type] += 1
 
         # Normalize to get proportions
-        proportions = {key: state_counts[key] for key in state_counts} # / self.num_individuals
+        proportions = {key: state_counts[key] / self.num_individuals for key in state_counts} # 
         self.history.append(proportions)
 
         # Update the resource pool based on the proportion of individuals
